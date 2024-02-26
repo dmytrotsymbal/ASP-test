@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using test.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -6,9 +5,9 @@ var builder = WebApplication.CreateBuilder(args);
 // add CORS
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(builder =>
+    options.AddDefaultPolicy(policy =>
     {
-        builder.WithOrigins("http://localhost:3000") // URL react app
+        policy.WithOrigins("http://localhost:3000") // URL React app
                .AllowAnyHeader()
                .AllowAnyMethod();
     });
@@ -16,15 +15,12 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 
-// connect to server
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection"),
-        new MariaDbServerVersion(new Version(11, 3))
-    ));
+// Реєстрація DatabaseContext у DI контейнері
+builder.Services.AddScoped(_ => new DatabaseContext(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var app = builder.Build();
 
-//use cors
+// use CORS
 app.UseCors();
 
 app.UseHttpsRedirection();

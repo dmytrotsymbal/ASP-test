@@ -1,98 +1,149 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using test.Models;
 using test.Data;
-
+using MySqlConnector;
 [Route("api/[controller]")]
 [ApiController]
 public class EmployeesController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly string _connectionString = "server=localhost;port=3307;database=test;user=root;password=root";
 
-    public EmployeesController(AppDbContext context)
+    private async Task<List<T>> QueryAsync<T>(string sql, Dictionary<string, object> parameters, Func<MySqlDataReader, T> map)
     {
-        _context = context;
+        using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+        using var command = new MySqlCommand(sql, connection);
+        foreach (var param in parameters)
+        {
+            command.Parameters.AddWithValue(param.Key, param.Value);
+        }
+        using var reader = await command.ExecuteReaderAsync();
+        var results = new List<T>();
+        while (await reader.ReadAsync())
+        {
+            results.Add(map(reader));
+        }
+        return results;
+    }
+
+    private async Task<int> ExecuteAsync(string sql, Dictionary<string, object> parameters)
+    {
+        using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+        using var command = new MySqlCommand(sql, connection);
+        foreach (var param in parameters)
+        {
+            command.Parameters.AddWithValue(param.Key, param.Value);
+        }
+        return await command.ExecuteNonQueryAsync();
     }
 
     // GET: api/Employees
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Employee>>> GetEmployees() // get all employees
+    public async Task<ActionResult<IEnumerable<Employee>>> GetEmployees()
     {
-        return await _context.Employees.ToListAsync();
+        var sql = "SELECT * FROM Employees";
+        var employees = await QueryAsync(sql, new Dictionary<string, object>(), reader => new Employee
+        {
+            EmployeeId = reader.GetInt32("EmployeeId"),
+            Name = reader.GetString("Name"),
+            Position = reader.GetString("Position"),
+            DepartmentId = reader.GetInt32("DepartmentId")
+        });
+        return Ok(employees);
     }
 
     // GET: api/Employees/5
     [HttpGet("{id}")]
-    public async Task<ActionResult<Employee>> GetEmployee(int id) // get employee method
+    public async Task<ActionResult<Employee>> GetEmployee(int id)
     {
-        var employee = await _context.Employees.FindAsync(id);
-
+        var sql = "SELECT * FROM Employees WHERE EmployeeId = @id";
+        var parameters = new Dictionary<string, object>
+            {
+                {"@id", id}
+            };
+        var employees = await QueryAsync(sql, parameters, reader => new Employee
+        {
+            EmployeeId = reader.GetInt32("EmployeeId"),
+            Name = reader.GetString("Name"),
+            Position = reader.GetString("Position"),
+            DepartmentId = reader.GetInt32("DepartmentId")
+        });
+        var employee = employees.FirstOrDefault();
         if (employee == null)
         {
             return NotFound();
         }
-
         return employee;
     }
 
     // POST: api/Employees
     [HttpPost]
-    public async Task<ActionResult<Employee>> PostEmployee(Employee employee) // create employee method
+    public async Task<ActionResult<Employee>> PostEmployee(Employee employee)
     {
-        _context.Employees.Add(employee);
-        await _context.SaveChangesAsync();
-
-        return CreatedAtAction(nameof(GetEmployee), new { id = employee.EmployeeId }, employee);
+        var sql = "INSERT INTO Employees (Name, Position, DepartmentId) VALUES (@Name, @Position, @DepartmentId)";
+        var parameters = new Dictionary<string, object>
+            {
+                {"@Name", employee.Name},
+                {"@Position", employee.Position},
+                {"@DepartmentId", employee.DepartmentId}
+            };
+        var result = await ExecuteAsync(sql, parameters);
+        return CreatedAtAction(nameof(GetEmployee), new { id = result }, employee);
     }
 
     // PUT: api/Employees/5
     [HttpPut("{id}")]
-    public async Task<IActionResult> PutEmployee(int id, Employee employee) // update employee method
+    public async Task<IActionResult> PutEmployee(int id, Employee employee)
     {
-        if (id != employee.EmployeeId)
-        {
-            return BadRequest();
-        }
-
-        _context.Entry(employee).State = EntityState.Modified;
-
-        try
-        {
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!EmployeeExists(id))
+        var sql = "UPDATE Employees SET Name = @Name, Position = @Position, DepartmentId = @DepartmentId WHERE EmployeeId = @id";
+        var parameters = new Dictionary<string, object>
             {
-                return NotFound();
-            }
-            else
-            {
-                throw;
-            }
+                {"@id", id},
+                {"@Name", employee.Name},
+                {"@Position", employee.Position},
+                {"@DepartmentId", employee.DepartmentId}
+            };
+        var result = await ExecuteAsync(sql, parameters);
+        if (result == 0)
+        {
+            return NotFound();
         }
-
         return NoContent();
     }
 
     // DELETE: api/Employees/5
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteEmployee(int id) // delete employee method
+    public async Task<IActionResult> DeleteEmployee(int id)
     {
-        var employee = await _context.Employees.FindAsync(id);
-        if (employee == null)
+        var sql = "DELETE FROM Employees WHERE EmployeeId = @id";
+        var parameters = new Dictionary<string, object>
+            {
+                {"@id", id}
+            };
+        var result = await ExecuteAsync(sql, parameters);
+        if (result == 0)
         {
             return NotFound();
         }
-
-        _context.Employees.Remove(employee);
-        await _context.SaveChangesAsync();
-
         return NoContent();
     }
 
-    private bool EmployeeExists(int id) // variable to check if employee exists
+    private async Task<bool> EmployeeExists(int id)
     {
-        return _context.Employees.Any(e => e.EmployeeId == id);
+        var sql = "SELECT COUNT(*) FROM Employees WHERE EmployeeId = @id";
+        var parameters = new Dictionary<string, object>
+            {
+                {"@id", id}
+            };
+        using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+        using var command = new MySqlCommand(sql, connection);
+        foreach (var param in parameters)
+        {
+            command.Parameters.AddWithValue(param.Key, param.Value);
+        }
+        var result = (long)await command.ExecuteScalarAsync();
+        return result > 0;
     }
 }

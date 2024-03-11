@@ -42,7 +42,7 @@ public class EmployeesController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Employee>>> GetEmployees()
     {
-        var sql = "SELECT * FROM Employees";
+        var sql = "SELECT * FROM Employees LIMIT 10";
         var employees = await QueryAsync(sql, new Dictionary<string, object>(), reader => new Employee
         {
             EmployeeId = reader.GetInt32("EmployeeId"),
@@ -53,7 +53,7 @@ public class EmployeesController : ControllerBase
         return Ok(employees);
     }
 
-    // GET: api/Employees/5
+    // GET: api/Employee/5
     [HttpGet("{id}")]
     public async Task<ActionResult<Employee>> GetEmployee(int id)
     {
@@ -76,6 +76,26 @@ public class EmployeesController : ControllerBase
         }
         return employee;
     }
+
+    // GET: api/Employees/search?name=John
+    [HttpGet("search")]
+    public async Task<ActionResult<IEnumerable<Employee>>> SearchEmployees(string name)
+    {
+        var sql = "SELECT * FROM Employees WHERE Name LIKE @Name";
+        var parameters = new Dictionary<string, object>
+    {
+        {"@Name", $"%{name}%"}
+    };
+        var employees = await QueryAsync(sql, parameters, reader => new Employee
+        {
+            EmployeeId = reader.GetInt32("EmployeeId"),
+            Name = reader.GetString("Name"),
+            Position = reader.GetString("Position"),
+            DepartmentId = reader.GetInt32("DepartmentId")
+        });
+        return Ok(employees);
+    }
+
 
     // POST: api/Employees
     [HttpPost]

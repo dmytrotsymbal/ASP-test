@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Options;
 using test.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,8 +32,8 @@ app.UseCors();
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
-    options.RoutePrefix = string.Empty; // Це змусить Swagger відкриватися за замовчуванням
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "API V1");
+    options.RoutePrefix = string.Empty; 
 });
 
 

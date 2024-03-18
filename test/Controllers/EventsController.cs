@@ -37,18 +37,17 @@ public class EventsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AccessEvent>>> GetAccessEvents(int pageNumber = 1, int pageSize = 10)
     {
-        var offset = (pageNumber - 1) * pageSize; // кількість записів, які треба пропустити
-                                                  // Наприклад, якщо pageNumber = 2 і pageSize = 10, offset буде 10.
-                                                  // Це означає, що перші 10 рядків будуть пропущені і дані почнуть вибиратись з 11-го рядка.
-        var sql = "SELECT * FROM AccessEvents LIMIT @offset, @pageSize;";
-        var parameters = new Dictionary<string, object>
-    {
-        {"@offset", offset},
-        {"@pageSize", pageSize}
-    };
-
         try
         {
+            var offset = (pageNumber - 1) * pageSize; // кількість записів, які треба пропустити
+                                                      // Наприклад, якщо pageNumber = 2 і pageSize = 10, offset буде 10.
+                                                      // Це означає, що перші 10 рядків будуть пропущені і дані почнуть вибиратись з 11-го рядка.
+            var sql = "SELECT * FROM AccessEvents LIMIT @offset, @pageSize;";
+            var parameters = new Dictionary<string, object>
+            {
+                {"@offset", offset},
+                {"@pageSize", pageSize}
+            };
             var events = await QueryAsync(sql, parameters, reader => new AccessEvent
             {
                 EventId = reader.GetInt32("EventId"),
